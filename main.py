@@ -199,6 +199,12 @@ async def root():
     }
 
 
+@app.get("/health")
+async def health():
+    """Health check endpoint for Amvera"""
+    return {"status": "ok"}
+
+
 @app.post("/parse", response_model=ParseResponse)
 async def parse_product(request: ParseRequest):
     """

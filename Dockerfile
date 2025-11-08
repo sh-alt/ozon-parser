@@ -42,4 +42,4 @@ COPY main.py .
 EXPOSE 8000
 
 # Запуск приложения (порт из переменной окружения PORT или 8000 по умолчанию)
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
