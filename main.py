@@ -85,14 +85,35 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             timezone_id='Europe/Moscow',
         )
         
-        # Маскировка автоматизации
+        # Агрессивная маскировка автоматизации
         await context.add_init_script("""
+            // Удаляем webdriver
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
+            
+            // Фейковые плагины
             Object.defineProperty(navigator, 'plugins', {
                 get: () => [1, 2, 3, 4, 5]
             });
+            
+            // Фейковые языки
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['ru-RU', 'ru', 'en-US', 'en']
+            });
+            
+            // Chrome runtime
+            window.chrome = {
+                runtime: {}
+            };
+            
+            // Permissions
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
         """)
         
         page = await context.new_page()
