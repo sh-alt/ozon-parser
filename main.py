@@ -13,7 +13,22 @@ import random
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Ozon Parser Service", version="1.0.0")
+app = FastAPI(
+    title="Ozon Parser Service", 
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Startup event для проверки
+@app.on_event("startup")
+async def startup_event():
+    logger.info("🚀 Application starting up...")
+    logger.info("✅ Startup complete!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("👋 Application shutting down...")
 
 
 class ParseRequest(BaseModel):
