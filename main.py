@@ -25,6 +25,10 @@ class ParseResponse(BaseModel):
     sku: str
     marketplace: str = "ozon"
     image_url: str | None = None
+    price: float | None = None
+    old_price: float | None = None
+    rating: float | None = None
+    reviews_count: int | None = None
 
 
 async def human_delay(min_sec: float = 1, max_sec: float = 3):
@@ -114,12 +118,71 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             if img_elem:
                 image_url = await img_elem.get_attribute('src')
             
-            logger.info(f"✅ Parsed successfully: {title[:50]}...")
+            # Извлечение цены
+            price = None
+            old_price = None
+            
+            # Попытка 1: текущая цена (основной селектор)
+            price_elem = await page.query_selector('span[class*="Price_price"]')
+            if not price_elem:
+                # Попытка 2: альтернативный селектор
+                price_elem = await page.query_selector('div[data-widget="webPrice"] span')
+            
+            if price_elem:
+                price_text = await price_elem.text_content()
+                # Очистка: "1 234 ₽" → 1234.0
+                price_clean = price_text.replace('₽', '').replace(' ', '').replace('\xa0', '').strip()
+                try:
+                    price = float(price_clean)
+                except ValueError:
+                    logger.warning(f"Cannot parse price: {price_text}")
+            
+            # Старая цена (если есть скидка)
+            old_price_elem = await page.query_selector('span[class*="Price_price"][class*="Price_crossed"]')
+            if not old_price_elem:
+                old_price_elem = await page.query_selector('span[class*="tsBodyControl400Small"]')
+            
+            if old_price_elem:
+                old_price_text = await old_price_elem.text_content()
+                old_price_clean = old_price_text.replace('₽', '').replace(' ', '').replace('\xa0', '').strip()
+                try:
+                    old_price = float(old_price_clean)
+                except ValueError:
+                    pass
+            
+            # Извлечение рейтинга
+            rating = None
+            rating_elem = await page.query_selector('div[class*="Rating"] span')
+            if rating_elem:
+                rating_text = await rating_elem.text_content()
+                try:
+                    rating = float(rating_text.strip())
+                except ValueError:
+                    pass
+            
+            # Извлечение количества отзывов
+            reviews_count = None
+            reviews_elem = await page.query_selector('a[href*="#reviews"] span')
+            if reviews_elem:
+                reviews_text = await reviews_elem.text_content()
+                # "1 234 отзыва" → 1234
+                reviews_clean = ''.join(filter(str.isdigit, reviews_text))
+                if reviews_clean:
+                    try:
+                        reviews_count = int(reviews_clean)
+                    except ValueError:
+                        pass
+            
+            logger.info(f"✅ Parsed: {title[:50]}... | Price: {price}₽ | Rating: {rating}")
             
             return ParseResponse(
                 title=title,
                 sku=sku,
-                image_url=image_url
+                image_url=image_url,
+                price=price,
+                old_price=old_price,
+                rating=rating,
+                reviews_count=reviews_count
             )
             
         finally:

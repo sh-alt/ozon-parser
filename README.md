@@ -62,7 +62,11 @@ Content-Type: application/json
   "title": "Смартфон Apple iPhone 15 128 ГБ, розовый",
   "sku": "1475305782",
   "marketplace": "ozon",
-  "image_url": "https://cdn1.ozone.ru/s3/multimedia-1/..."
+  "image_url": "https://cdn1.ozone.ru/s3/multimedia-1/...",
+  "price": 79990.0,
+  "old_price": 89990.0,
+  "rating": 4.8,
+  "reviews_count": 1234
 }
 ```
 
