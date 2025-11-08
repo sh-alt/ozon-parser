@@ -67,14 +67,17 @@ async def parse_ozon_product(url: str) -> ParseResponse:
     logger.info(f"Parsing Ozon product: SKU={sku}")
     
     async with async_playwright() as p:
-        # Запуск браузера
+        # Запуск браузера (как в статье Habr)
         browser = await p.chromium.launch(
             headless=True,
             args=[
                 '--disable-blink-features=AutomationControlled',
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
-            ]
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor'
+            ],
+            slow_mo=50  # Замедляет действия для имитации человека
         )
         
         # Создание контекста с реалистичными настройками
@@ -118,6 +121,10 @@ async def parse_ozon_product(url: str) -> ParseResponse:
         
         page = await context.new_page()
         
+        # Таймауты (как в статье Habr)
+        page.set_default_timeout(15000)
+        page.set_default_navigation_timeout(20000)
+        
         try:
             # Сначала заходим на главную (как реальный пользователь)
             logger.info("Visiting Ozon homepage...")
@@ -130,7 +137,14 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             
             # Переход на страницу товара
             logger.info(f"Navigating to product page: {url}")
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            
+            # Ждём заголовок (как в статье Habr)
+            try:
+                await page.wait_for_selector("h1", timeout=10000)
+            except:
+                logger.warning(f"Заголовок не найден: {url}")
+            
             await human_delay(3, 6)
             
             # Несколько случайных скроллов
