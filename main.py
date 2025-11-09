@@ -109,6 +109,22 @@ async def parse_ozon_product(url: str) -> ParseResponse:
         page.set_default_timeout(15000)
         page.set_default_navigation_timeout(20000)
         
+        # Перехват API запросов (для извлечения JSON напрямую)
+        api_responses = []
+        
+        async def handle_response(response):
+            """Перехватываем API ответы с данными товара"""
+            if 'entrypoint-api.bx/page/json' in response.url or 'api.ozon.ru' in response.url:
+                try:
+                    if response.status == 200:
+                        json_data = await response.json()
+                        api_responses.append(json_data)
+                        logger.info(f"📦 Intercepted API response from: {response.url[:80]}...")
+                except:
+                    pass
+        
+        page.on("response", handle_response)
+        
         try:
             # Сначала заходим на главную (как реальный пользователь)
             logger.info("Visiting Ozon homepage...")
@@ -137,12 +153,38 @@ async def parse_ozon_product(url: str) -> ParseResponse:
                 await page.evaluate(f"window.scrollBy(0, {scroll_amount})")
                 await human_delay(1, 3)
             
-            # Извлечение данных
-            title_elem = await page.query_selector("h1")
-            if title_elem:
-                title = (await title_elem.text_content()).strip()
-            else:
-                title = f"Товар Ozon {sku}"
+            # Проверяем перехваченные API ответы
+            logger.info(f"📊 Intercepted {len(api_responses)} API responses")
+            
+            # Попытка извлечь данные из JSON API
+            json_data = None
+            for idx, api_resp in enumerate(api_responses):
+                if isinstance(api_resp, dict):
+                    # Логируем ключи для отладки
+                    keys = list(api_resp.keys())[:10]  # Первые 10 ключей
+                    logger.info(f"API Response #{idx} keys: {keys}")
+                    
+                    if ('widgetStates' in api_resp or 'title' in api_resp or 'seo' in api_resp):
+                        json_data = api_resp
+                        logger.info(f"✅ Found product data in API response! Keys: {list(api_resp.keys())}")
+                        break
+            
+            # Извлечение данных (приоритет - JSON API)
+            title = None
+            if json_data:
+                # Пытаемся извлечь title из JSON
+                if 'seo' in json_data and 'title' in json_data['seo']:
+                    title = json_data['seo']['title']
+                elif 'title' in json_data:
+                    title = json_data['title']
+            
+            # Fallback - парсинг HTML
+            if not title:
+                title_elem = await page.query_selector("h1")
+                if title_elem:
+                    title = (await title_elem.text_content()).strip()
+                else:
+                    title = f"Товар Ozon {sku}"
             
             # Извлечение изображения
             image_url = None
