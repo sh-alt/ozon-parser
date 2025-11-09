@@ -74,8 +74,8 @@ async def parse_ozon_product(url: str) -> ParseResponse:
                 '--disable-blink-features=AutomationControlled',
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor'
+                # '--disable-web-security',
+                # '--disable-features=VizDisplayCompositor'
             ],
             slow_mo=50  # Замедляет действия для имитации человека
         )
