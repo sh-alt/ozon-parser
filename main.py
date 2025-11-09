@@ -77,7 +77,7 @@ async def parse_ozon_product(url: str) -> ParseResponse:
                 # '--disable-web-security',
                 # '--disable-features=VizDisplayCompositor'
             ],
-            slow_mo=50  # Замедляет действия для имитации человека
+            # slow_mo=50  # Замедляет действия для имитации человека
         )
         
         # Создание контекста с реалистичными настройками
@@ -86,37 +86,21 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             locale='ru-RU',
             timezone_id='Europe/Moscow',
+            java_script_enabled=True,
+            ignore_https_errors=True
         )
         
         # Агрессивная маскировка автоматизации
         await context.add_init_script("""
             // Удаляем webdriver
             Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
+                get: () =&gt; undefined
             });
             
             // Фейковые плагины
             Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
+                get: () =&gt; [1, 2, 3, 4, 5]
             });
-            
-            // Фейковые языки
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['ru-RU', 'ru', 'en-US', 'en']
-            });
-            
-            // Chrome runtime
-            window.chrome = {
-                runtime: {}
-            };
-            
-            // Permissions
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                    Promise.resolve({ state: Notification.permission }) :
-                    originalQuery(parameters)
-            );
         """)
         
         page = await context.new_page()
