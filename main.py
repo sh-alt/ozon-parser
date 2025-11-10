@@ -118,29 +118,19 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             url = response.url
             all_urls.append(url)
             
-            # Расширенный список URL для перехвата
-            target_keywords = [
-                'entrypoint-api',
-                'api.ozon.ru',
-                '/api/',
-                'page/json',
-                'product',
-                'widget'
-            ]
-            
-            if any(keyword in url for keyword in target_keywords):
+            # Пытаемся получить JSON из ЛЮБОГО ответа
+            if response.status == 200:
                 try:
-                    if response.status == 200:
-                        content_type = response.headers.get('content-type', '')
-                        if 'json' in content_type:
-                            json_data = await response.json()
-                            api_responses.append({
-                                'url': url,
-                                'data': json_data
-                            })
-                            logger.info(f"📦 Intercepted JSON from: {url[:100]}...")
-                except Exception as e:
-                    logger.warning(f"Failed to parse response from {url[:50]}: {e}")
+                    # Пробуем распарсить как JSON
+                    json_data = await response.json()
+                    api_responses.append({
+                        'url': url,
+                        'data': json_data
+                    })
+                    logger.info(f"📦 Got JSON from: {url[:100]}...")
+                except:
+                    # Не JSON - пропускаем
+                    pass
         
         page.on("response", handle_response)
         
@@ -176,10 +166,9 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             logger.info(f"📊 Total URLs intercepted: {len(all_urls)}")
             logger.info(f"📊 JSON API responses: {len(api_responses)}")
             
-            # Показываем примеры URL
-            api_urls = [u for u in all_urls if '/api/' in u or 'json' in u]
-            if api_urls:
-                logger.info(f"🔍 API URLs found: {api_urls[:3]}")
+            # Показываем ВСЕ URL (первые 15)
+            for i, u in enumerate(all_urls[:15]):
+                logger.info(f"  URL #{i+1}: {u}")
             
             # Попытка извлечь данные из JSON API
             json_data = None
