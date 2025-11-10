@@ -8,6 +8,7 @@ from playwright.async_api import async_playwright
 import asyncio
 import logging
 import random
+import os
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -80,15 +81,37 @@ async def parse_ozon_product(url: str) -> ParseResponse:
             # slow_mo=50  # Замедляет действия для имитации человека
         )
         
+        # Прокси из переменных окружения (mobpool)
+        proxy_config = None
+        proxy_url = os.getenv('OZON_PROXY_URL')
+        if proxy_url:
+            # Парсим формат: mobpool.proxy.market:10000@username:password
+            if '@' in proxy_url:
+                parts = proxy_url.split('@')
+                if len(parts) == 2:
+                    server_port = parts[0]
+                    user_pass = parts[1]
+                    if ':' in user_pass:
+                        username, password = user_pass.split(':', 1)
+                        proxy_config = {
+                            'server': f'http://{server_port}',
+                            'username': username,
+                            'password': password
+                        }
+                        logger.info(f"🔒 Using proxy: {server_port}")
+        
         # Создание контекста с реалистичными настройками
-        context = await browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            locale='ru-RU',
-            timezone_id='Europe/Moscow',
-            java_script_enabled=True,
-            ignore_https_errors=True
-        )
+        context_options = {
+            'viewport': {'width': 1920, 'height': 1080},
+            'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'locale': 'ru-RU',
+            'timezone_id': 'Europe/Moscow',
+        }
+        
+        if proxy_config:
+            context_options['proxy'] = proxy_config
+        
+        context = await browser.new_context(**context_options)
         
         # Агрессивная маскировка автоматизации
         await context.add_init_script("""
