@@ -111,17 +111,36 @@ async def parse_ozon_product(url: str) -> ParseResponse:
         
         # Перехват API запросов (для извлечения JSON напрямую)
         api_responses = []
+        all_urls = []
         
         async def handle_response(response):
             """Перехватываем API ответы с данными товара"""
-            if 'entrypoint-api.bx/page/json' in response.url or 'api.ozon.ru' in response.url:
+            url = response.url
+            all_urls.append(url)
+            
+            # Расширенный список URL для перехвата
+            target_keywords = [
+                'entrypoint-api',
+                'api.ozon.ru',
+                '/api/',
+                'page/json',
+                'product',
+                'widget'
+            ]
+            
+            if any(keyword in url for keyword in target_keywords):
                 try:
                     if response.status == 200:
-                        json_data = await response.json()
-                        api_responses.append(json_data)
-                        logger.info(f"📦 Intercepted API response from: {response.url[:80]}...")
-                except:
-                    pass
+                        content_type = response.headers.get('content-type', '')
+                        if 'json' in content_type:
+                            json_data = await response.json()
+                            api_responses.append({
+                                'url': url,
+                                'data': json_data
+                            })
+                            logger.info(f"📦 Intercepted JSON from: {url[:100]}...")
+                except Exception as e:
+                    logger.warning(f"Failed to parse response from {url[:50]}: {e}")
         
         page.on("response", handle_response)
         
@@ -153,20 +172,30 @@ async def parse_ozon_product(url: str) -> ParseResponse:
                 await page.evaluate(f"window.scrollBy(0, {scroll_amount})")
                 await human_delay(1, 3)
             
-            # Проверяем перехваченные API ответы
-            logger.info(f"📊 Intercepted {len(api_responses)} API responses")
+            # Логируем все URL для отладки
+            logger.info(f"📊 Total URLs intercepted: {len(all_urls)}")
+            logger.info(f"📊 JSON API responses: {len(api_responses)}")
+            
+            # Показываем примеры URL
+            api_urls = [u for u in all_urls if '/api/' in u or 'json' in u]
+            if api_urls:
+                logger.info(f"🔍 API URLs found: {api_urls[:3]}")
             
             # Попытка извлечь данные из JSON API
             json_data = None
-            for idx, api_resp in enumerate(api_responses):
+            for idx, api_item in enumerate(api_responses):
+                api_resp = api_item.get('data', {})
+                api_url = api_item.get('url', '')
+                
                 if isinstance(api_resp, dict):
                     # Логируем ключи для отладки
                     keys = list(api_resp.keys())[:10]  # Первые 10 ключей
-                    logger.info(f"API Response #{idx} keys: {keys}")
+                    logger.info(f"API Response #{idx} from {api_url[:80]}...")
+                    logger.info(f"  Keys: {keys}")
                     
                     if ('widgetStates' in api_resp or 'title' in api_resp or 'seo' in api_resp):
                         json_data = api_resp
-                        logger.info(f"✅ Found product data in API response! Keys: {list(api_resp.keys())}")
+                        logger.info(f"✅ Found product data! Keys: {list(api_resp.keys())[:20]}")
                         break
             
             # Извлечение данных (приоритет - JSON API)
